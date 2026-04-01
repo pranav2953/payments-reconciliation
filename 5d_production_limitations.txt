@@ -1,0 +1,18 @@
+
+1. It would fail on batch settlements — when one bank transfer
+   covers multiple transactions, the engine cannot split the
+   settled amount back to individual transaction IDs without a
+   line-item mapping file that banks don't always provide,
+   causing false "missing settlement" flags on valid transactions.
+
+2. It would produce false cross-month flags on any pipeline
+   running in UTC — a transaction recorded at 11:45 PM IST on
+   March 31 becomes March 30 in UTC, so the engine wrongly marks
+   it as settled in the wrong month when the pipeline timestamp
+   is not converted to IST before comparison.
+
+3. The duplicate check uses pandas which loads all transaction
+   IDs into memory — at 10 million transactions per month this
+   will crash or timeout and must be replaced with a database
+   query using SQL GROUP BY transaction_id HAVING COUNT(*) > 1
+   running directly on the source database.
