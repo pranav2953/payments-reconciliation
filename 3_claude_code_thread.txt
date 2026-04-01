@@ -1,0 +1,268 @@
+================================================================
+DELIVERABLE 3 — CLAUDE CODE EXECUTION THREAD
+Assessment: Onelab Ventures — AI-Native Engineer Intern
+Date: April 1, 2026
+Tool Used: Claude AI (claude.ai)
+================================================================
+
+================================================================
+PROMPT 1 — DATA GENERATION
+================================================================
+
+USER:
+Generate two CSV datasets for a payments reconciliation problem.
+Month: March 2026 | Currency: INR | Timezone: IST
+
+Transactions dataset (100 rows) must include:
+- transaction_id, merchant, amount, currency, payment_method,
+  timestamp, status, original_txn_id
+
+Settlements dataset must include:
+- settlement_id, transaction_id, settled_amount,
+  settlement_date, bank_reference
+
+Plant exactly these 4 gaps:
+1. Cross-month: 2 transactions on March 31 that settle on April 1
+2. Rounding: transaction amount = 999.999, bank settles = 1000.00
+3. Duplicate: same transaction_id appears twice in transactions file
+4. Orphan refund: a REFUND row whose original_txn_id doesn't exist
+
+State all assumptions before generating.
+
+----------------------------------------------------------------
+CLAUDE RESPONSE:
+----------------------------------------------------------------
+
+ASSUMPTIONS STATED:
+- Currency = INR (Indian Rupees)
+- All timestamps in IST (UTC+5:30)
+- Month-end cutoff = 2026-03-31 23:59:59 IST
+- Transactions recorded instantly when customer pays
+- Settlements batched by bank, arrive 1-2 business days later
+- Transaction IDs are unique — any duplicate is a data error
+- Refund entries reference original_txn_id field
+- FAILED transactions excluded from reconciliation
+- Settlement after month-end for March txn = cross-month gap
+
+CODE EXECUTED:
+→ Generated transactions.csv (100 rows, 8 columns)
+→ Generated settlements.csv (98 rows, 5 columns)
+
+PLANTED GAPS CONFIRMED:
+GAP 1 (Cross-month):   TXN0091, TXN0092 → settled 2026-04-01
+GAP 2 (Rounding):      TXN0093 → txn=999.999, settled=1000.00
+GAP 3 (Duplicate):     TXN0094 → appears twice in transactions
+GAP 4 (Orphan Refund): TXN0095 → refunds TXN9999 (doesn't exist)
+
+OUTPUT:
+Transactions written: 100
+Settlements written: 98
+
+================================================================
+PROMPT 2 — BUILD RECONCILIATION ENGINE
+================================================================
+
+USER:
+Build a Python + Pandas reconciliation engine with these detectors:
+1. Cross-month settlements (settled after 2026-03-31)
+2. Amount mismatches including rounding visible only when summed
+3. Duplicate transaction_ids
+4. Orphan refunds (no matching original)
+5. Missing settlements
+6. Fuzzy match fallback (amount + date when ID match fails)
+
+Output a clear report grouped by gap type.
+
+----------------------------------------------------------------
+CLAUDE RESPONSE:
+----------------------------------------------------------------
+
+Built reconcile.py with 8 functions:
+
+load_data()              → loads CSVs, parses dates, drops FAILED
+detect_cross_month()     → finds March txns settled after Mar 31
+detect_amount_mismatch() → per-row diff + aggregate sum check
+detect_duplicates()      → transaction_id appearing > 1 time
+detect_orphan_refunds()  → REFUND with no matching SUCCESS
+detect_missing_settlements() → SUCCESS txns with no settlement
+fuzzy_match()            → fallback: amount ±₹0.01 + date range
+print_report()           → formatted output with ✅ / ⚠️
+save_report()            → exports gap_report.csv
+
+FIRST RUN OUTPUT:
+→ GAP 1 Cross-Month:  ⚠️  2 FOUND (TXN0091, TXN0092)
+→ GAP 2 Mismatches:   ⚠️  95 FOUND  ← BUG DETECTED
+→ GAP 3 Duplicates:   ⚠️  2 FOUND (TXN0094 x2)
+→ GAP 4 Orphan:       ⚠️  1 FOUND (TXN0095)
+→ GAP 5 Missing:      ✅  NONE
+→ GAP 6 Fuzzy:        ✅  NONE
+
+================================================================
+WRONG TURN — BUG FOUND AND FIXED
+================================================================
+
+BUG IDENTIFIED:
+GAP 2 returned 95 rows instead of 1.
+
+ROOT CAUSE:
+In detect_amount_mismatch(), the description column was built
+using the original 'merged' dataframe (all 95 rows) instead of
+the filtered 'mismatches' dataframe.
+
+BUGGY CODE:
+  mismatches["description"] = (
+      "Txn=₹" + merged["amount"].astype(str) +     ← used merged
+      " vs Settled=₹" + merged["settled_amount"]...
+  )
+
+FIXED CODE:
+  mismatches["description"] = (
+      "Txn=₹" + mismatches["amount"].astype(str) +  ← fixed
+      " vs Settled=₹" + mismatches["settled_amount"]...
+  )
+
+FIX APPLIED: str_replace on reconcile.py
+RESULT AFTER FIX:
+→ GAP 2 Mismatches: ✅ 0 per-row mismatches (correct)
+→ Aggregate imbalance of ₹449.999 correctly flagged separately
+
+================================================================
+PROMPT 3 — PLAIN ENGLISH GAP REPORTER
+================================================================
+
+USER:
+Build a separate gap_reporter.py that prints every gap as one
+plain-English sentence. Format:
+- "Transaction X settled next month"
+- "Duplicate detected: TXN0094 appears 2 times"
+- "Rounding mismatch of ₹0.001 on TXN0093"
+- "Orphan refund: TXN0095 references TXN9999 which doesn't exist"
+
+----------------------------------------------------------------
+CLAUDE RESPONSE:
+----------------------------------------------------------------
+
+Built gap_reporter.py with a flag() helper function that:
+- Prints one sentence per gap to terminal
+- Saves all gaps to gap_report.csv with columns:
+  gap_id, gap_type, transaction_id, explanation, amount_inr
+
+FINAL OUTPUT:
+----------------------------------------------------------------
+[G1] Transaction TXN0091 (₹9,763.46) was made on 2026-03-31
+     but settled on 2026-04-01 — this falls AFTER month-end
+     and will appear in April's books.
+
+[G1] Transaction TXN0092 (₹7,391.25) was made on 2026-03-31
+     but settled on 2026-04-01 — this falls AFTER month-end
+     and will appear in April's books.
+
+[G2] Books do NOT balance: platform recorded ₹5,14,712.8690
+     in total but bank settled only ₹5,14,262.8700 —
+     net shortfall of ₹449.9990 across all March transactions.
+
+[G3] Duplicate detected: Transaction TXN0094 (₹450.00 on
+     2026-03-20 10:15) appears 2 times in platform records —
+     if settled 2×, this inflates revenue by ₹450.00.
+
+[G4] Orphan refund detected: Transaction TXN0095 attempts to
+     refund ₹320.00 back to original transaction TXN9999 —
+     but TXN9999 does NOT exist in platform records.
+     This refund has no parent and cannot be reconciled.
+
+RECONCILIATION SUMMARY — MARCH 2026
+Gap Type                Count
+Aggregate Imbalance       1
+Cross-Month Settlement    2
+Duplicate Transaction     1
+Orphan Refund             1
+
+TOTAL GAPS : 5
+GAP TYPES  : 4
+----------------------------------------------------------------
+
+================================================================
+PROMPT 4 — TEST CASES
+================================================================
+
+USER:
+Write test cases that verify all 4 planted gaps are correctly
+detected by the reconciliation engine.
+
+----------------------------------------------------------------
+CLAUDE RESPONSE:
+----------------------------------------------------------------
+
+Built test_reconciliation.py with 11 test cases:
+
+TEST 1  ✅ GAP 1: At least one cross-month settlement exists
+TEST 2  ✅ GAP 1: TXN0091 settled in April
+TEST 3  ✅ GAP 1: TXN0092 settled in April
+TEST 4  ✅ GAP 2: TXN0093 has amount mismatch
+TEST 5  ✅ GAP 2: Aggregate books do not balance
+TEST 6  ✅ GAP 3: Duplicate transaction detected
+TEST 7  ✅ GAP 3: TXN0094 is the duplicate
+TEST 8  ✅ GAP 3: TXN0094 appears exactly 2 times
+TEST 9  ✅ GAP 4: Orphan refund detected
+TEST 10 ✅ GAP 4: TXN0095 is the orphan refund
+TEST 11 ✅ GAP 4: Orphan references TXN9999
+
+RESULTS: 11 passed | 0 failed
+
+================================================================
+PROMPT 5 — FILE PATH FIX
+================================================================
+
+USER:
+Files point to /home/claude/ which only works on the AI server.
+Fix paths so they work locally in VS Code.
+
+----------------------------------------------------------------
+CLAUDE RESPONSE:
+----------------------------------------------------------------
+
+Used Ctrl+H Find & Replace in VS Code:
+Find    → /home/claude/
+Replace → (empty)
+
+All absolute paths replaced with relative paths.
+Files now load from current working directory.
+
+VERIFIED: python reconcile.py runs successfully locally.
+
+================================================================
+FINAL FILE STRUCTURE
+================================================================
+
+payments-reconciliation/
+├── README.md
+├── 2_distilled_prompt.txt
+├── transactions.csv           ← 100 rows, 8 columns
+├── settlements.csv            ← 98 rows, 5 columns
+├── reconcile.py               ← main engine, 6 detectors
+├── gap_reporter.py            ← plain English per gap
+└── test_reconciliation.py     ← 11 test cases, all pass
+
+================================================================
+WHAT THIS WOULD GET WRONG IN PRODUCTION
+================================================================
+
+1. Batch settlements where one bank transfer covers multiple
+   transactions cannot be split to individual transaction IDs
+   without a line-item mapping file the bank doesn't always
+   provide — causing false "missing settlement" flags.
+
+2. UTC vs IST timezone mismatch produces false cross-month
+   flags — a transaction at 11:45 PM IST on March 31 becomes
+   March 30 in UTC, so UTC-based pipelines wrongly flag it
+   as settled in the wrong month.
+
+3. The duplicate check uses pandas duplicated() which loads
+   all transaction IDs into memory — at 10M+ transactions
+   per month this will crash or timeout and needs to be
+   replaced with a SQL GROUP BY transaction_id HAVING
+   COUNT(*) > 1 query on the database directly.
+
+================================================================
+END OF CLAUDE CODE THREAD
+================================================================
