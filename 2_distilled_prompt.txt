@@ -1,0 +1,25 @@
+I have two CSV files for a payments reconciliation problem.
+
+Assumptions:
+- Currency = INR | Timezone = IST
+- Month-end cutoff = 2026-03-31
+- Transactions: transaction_id, merchant, amount, currency,
+  payment_method, timestamp, status, original_txn_id
+- Settlements: settlement_id, transaction_id, settled_amount,
+  settlement_date, bank_reference
+- FAILED transactions excluded
+
+Write Python + Pandas reconciliation engine that detects:
+1. Transactions settled after month-end (cross-month)
+2. Amount mismatches including rounding visible only when summed
+3. Duplicate transaction_ids in transactions file
+4. Refunds where original_txn_id has no matching SUCCESS transaction
+5. SUCCESS transactions with no settlement
+
+For every gap print ONE plain-English sentence:
+- "Transaction TXN0091 settled next month on 2026-04-01"
+- "Duplicate detected: TXN0094 appears 2 times"
+- "Rounding mismatch of ₹0.001 on TXN0093"
+- "Orphan refund: TXN0095 references TXN9999 which doesn't exist"
+
+Output a CSV report grouped by gap type.
