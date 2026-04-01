@@ -1,0 +1,7 @@
+gap_category,gap_type,transaction_id,description,txn_date,settlement_date,amount,settled_amount,amount_diff,timestamp,occurrence,original_txn_id
+GAP 1 — Cross-Month Settlements,Cross-Month Settlement,TXN0091,Transaction on 2026-03-31 settled on 2026-04-01 (after month-end),2026-03-31,2026-04-01,9763.46,9763.46,,,,
+GAP 1 — Cross-Month Settlements,Cross-Month Settlement,TXN0092,Transaction on 2026-03-31 settled on 2026-04-01 (after month-end),2026-03-31,2026-04-01,7391.25,7391.25,,,,
+GAP 2 — Amount Mismatches,Amount Mismatch,AGGREGATE,Books don't balance at aggregate level: Sum of txns=₹514712.8690 vs Sum of settlements=₹514262.8700 | Net diff=₹449.9990 (likely caused by cross-month or missing settlements),,,514712.869,514262.87,449.999,,,
+GAP 3 — Duplicate Transactions,Duplicate Transaction,TXN0094,transaction_id TXN0094 appears 2 times in transactions file,,,450.0,,,2026-03-20 10:15:00,1.0,
+GAP 3 — Duplicate Transactions,Duplicate Transaction,TXN0094,transaction_id TXN0094 appears 2 times in transactions file,,,450.0,,,2026-03-20 10:15:00,2.0,
+GAP 4 — Orphan Refunds,Orphan Refund,TXN0095,Refund TXN0095 references original_txn_id=TXN9999 which does NOT exist in transactions,,,-320.0,,,,,TXN9999

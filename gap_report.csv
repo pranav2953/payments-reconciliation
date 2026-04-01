@@ -1,0 +1,6 @@
+gap_id,gap_type,transaction_id,explanation,amount_inr,txn_date,settlement_date,total_txn,total_settled,net_diff,occurrences,risk_amount,original_txn_id
+G1,Cross-Month Settlement,TXN0091,"Transaction TXN0091 (₹9,763.46) was made on 2026-03-31 but settled on 2026-04-01 — this falls AFTER month-end and will appear in April's books.",9763.46,2026-03-31,2026-04-01,,,,,,
+G1,Cross-Month Settlement,TXN0092,"Transaction TXN0092 (₹7,391.25) was made on 2026-03-31 but settled on 2026-04-01 — this falls AFTER month-end and will appear in April's books.",7391.25,2026-03-31,2026-04-01,,,,,,
+G2-AGG,Aggregate Imbalance,ALL,"Books do NOT balance: platform recorded ₹514,712.8690 in total but bank settled only ₹514,262.8700 — net shortfall of ₹449.9990 across all March transactions.",,,,514712.8690000001,514262.8700000001,449.999,,,
+G3,Duplicate Transaction,TXN0094,"Duplicate detected: Transaction TXN0094 (₹450.00 on 2026-03-20 10:15) appears 2 times in the platform records — if settled 2×, this inflates revenue by ₹450.00.",450.0,,,,,,2.0,450.0,
+G4,Orphan Refund,TXN0095,Orphan refund detected: Transaction TXN0095 attempts to refund ₹320.00 back to original transaction TXN9999 — but TXN9999 does NOT exist in platform records. This refund has no parent and cannot be reconciled.,-320.0,,,,,,,,TXN9999
